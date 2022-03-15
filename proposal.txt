@@ -1,5 +1,0 @@
-3D maze explorer
-
-Our goal is to create an ai that can explore and find the exit for a maze, given only a 3D view of it. The neural networks will input the view port and output walking instructions.
-
-Our data sets will be procedurally generated. We will be using https://github.com/itchyny/maze to generate the mazes. Our testing method will be to test the steps it takes for the bot to solve a 50x50 maze.
