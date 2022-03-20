@@ -12,14 +12,14 @@ if len(sys.argv) > 1:
     model = PPO.load(sys.argv[1])
 else:
     model = PPO("MlpPolicy", env, verbose=1,tensorboard_log="/tmp/sac/")
-    model.learn(total_timesteps=1e4)
+    model.learn(total_timesteps=1e5)
 
 obs = env.reset()
 
 model.save("models/"+str(time.time())+"_saved_model.zip")
-for i in range(10000):
+for i in range(200):
     action, _states = model.predict(obs, deterministic=True)
-    time.sleep(1/60)
+    time.sleep(1/120)
     obs, reward, done, info = env.step(action)
     env.render()
     if done:
