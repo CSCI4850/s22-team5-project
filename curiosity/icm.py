@@ -21,4 +21,8 @@ class TransformReward(RewardWrapper):
         self.f = f
 
     def reward(self, reward):
+        #forward model
+        #inverse model
+        #features for state
+        #features for state+1
         return self.f(reward)
