@@ -1,3 +1,4 @@
 _vizdoom*
 models/*
 obs/*
+*.pth
