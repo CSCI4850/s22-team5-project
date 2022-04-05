@@ -1,4 +1,5 @@
 _vizdoom*
 models/*
 obs/*
+__pycache__/*
 *.pth
