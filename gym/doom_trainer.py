@@ -13,6 +13,7 @@ import os
 import torch
 import torchvision
 import cv2
+import scipy.ndimage as ndimage
 from torch import nn
 from torch.utils.data import DataLoader
 from torch import optim
@@ -28,15 +29,36 @@ from tqdm import tqdm
 
 from stable_baselines3 import PPO
 
-latent_width=32
+#VizdoomBasic-v0
+#VizdoomCorridor-v0
+#VizdoomDefendCenter-v0
+#VizdoomDefendLine-v0
+#VizdoomHealthGathering-v0
+#VizdoomMyWayHome-v0
+#VizdoomPredictPosition-v0
+#VizdoomTakeCover-v0
+#VizdoomDeathmatch-v0
+#VizdoomHealthGatheringSupreme-v0
+#env = Autoencoder_wrapper(gym.make("Pong-v0"))
+
+env = gym.make("VizdoomBasic-v0")
+
+print("observation_space shape:",env.observation_space.shape)
+print("action_space shape:",env.action_space.n)
+
+latent_width=128
 
 hl_width=256
 
-screen_width=210
-screen_height=160
+screen_width=env.observation_space.shape[0]
+screen_height=env.observation_space.shape[1]
+
+print('screen_width: ',screen_width)
+print('screen_height: ',screen_height)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device")
+
 
 class Autoencoder(nn.Module):
     def __init__(self):
@@ -78,6 +100,7 @@ def autoencoder_error(img):
     loss = criterion(out, img)
     return loss.item()
 
+figure, (ax1,ax2) = plt.subplots(2,1)
 def train_autoencoder(num_epochs=10):
     print("training autoencoder")
     X = []
@@ -96,15 +119,14 @@ def train_autoencoder(num_epochs=10):
     loader=DataLoader(dataset,batch_size=8,shuffle=True)
 
     train_loss=[]
-    outputs={}
     batch_size=len(loader)
     if batch_size < 1:
         return
 
     autoencoder.half=False
-
-    #for epoch in range(num_epochs):
-    for epoch in tqdm(range(num_epochs)):
+    i=0
+    for epoch in range(num_epochs):
+    #for epoch in tqdm(range(num_epochs)):
         running_loss = 0
         for batch in loader:
             img, _ = batch
@@ -115,13 +137,24 @@ def train_autoencoder(num_epochs=10):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
+        i+=1
         running_loss /= batch_size
         train_loss.append(running_loss)
-    #    print("running_loss: "+str(running_loss))
-        outputs[epoch+1] = {'img': img, 'out': out}
-        arr = np.reshape(out.cpu().detach().numpy()[0],(screen_width,screen_height,3))
-        plt.imshow(arr,interpolation='nearest')
-        plt.pause(1/60)
+        print("running_loss: "+str(running_loss))
+        if(i==1):
+            i=0
+            arr = np.reshape(out.cpu().detach().numpy()[0],(screen_height,screen_width,3))
+            arr = np.round(arr).astype(int)
+            arr = ndimage.rotate(arr,-90,reshape=True)
+            arr = np.fliplr(arr)
+            ax1.imshow(arr,interpolation='nearest')
+
+            arr = np.reshape(img.cpu().detach().numpy()[0],(screen_height,screen_width,3))
+            arr = np.round(arr).astype(int)
+            arr = ndimage.rotate(arr,-90,reshape=True)
+            arr = np.fliplr(arr)
+            ax2.imshow(arr,interpolation='nearest')
+            plt.pause(1/120)
 
 #torch.save(autoencoder.state_dict(),'autoencoder.pth')
 
@@ -139,9 +172,9 @@ class Autoencoder_wrapper(gym.Wrapper):
         #save some states to train the autoencoder with
         a_err = autoencoder_error(np.column_stack(obs))
         reward = reward + (a_err/500)
-        if (random.randint(0,1000)==0):
+        if (random.randint(0,100)==0):
             print("a_err: ",a_err)
-            if ((a_err > 100)):
+            if ((a_err > 25)):
                 print("saving because a_err: ",a_err)
                 with open("obs/"+str(uuid.uuid4()),"w") as file:
                     np.savetxt(file,np.column_stack(obs),fmt='%1.1f')
@@ -160,37 +193,21 @@ class Autoencoder_wrapper(gym.Wrapper):
         ret = autoencoder(img)
         return ret.cpu().detach()
 
-#VizdoomBasic-v0
-#VizdoomCorridor-v0
-#VizdoomDefendCenter-v0
-#VizdoomDefendLine-v0
-#VizdoomHealthGathering-v0
-#VizdoomMyWayHome-v0
-#VizdoomPredictPosition-v0
-#VizdoomTakeCover-v0
-#VizdoomDeathmatch-v0
-#VizdoomHealthGatheringSupreme-v0
-#env = Autoencoder_wrapper(gym.make("Pong-v0"))
-env = gym.make("Pong-v0")
-
-print("observation_space shape:",env.observation_space.shape)
-print("action_space shape:",env.action_space.n)
+env = Autoencoder_wrapper(env)
 
 def visualize(env,model,count):
     sum = 0
     obs = env.reset()
-    action_counts=model.action_space.n*[0]
     for i in range(count):
         action, _states = model.predict(obs, deterministic=True)
-        action_counts[action]+=1
 #        time.sleep(1/120)
-        obs, reward, done, info = env.step(action)
+#        obs, reward, done, info = env.step(action)
+        obs, reward, done, info = env.step(env.action_space.sample())
         sum=sum+reward
         env.render()
         if done:
             obs = env.reset()
     print("sum reward: "+str(sum))
-    print(action_counts)
 
 if len(sys.argv) > 1:
     model = PPO.load(argv[1])
@@ -202,7 +219,7 @@ identifier=uuid.uuid4()
 should_train_autoencoder=True;
 autoencoder_path='autoencoder.pth'
 if should_train_autoencoder:
-    train_autoencoder(num_epochs=1000)
+    train_autoencoder(num_epochs=100)
     torch.save(autoencoder.state_dict(),autoencoder_path)
 else:
     autoencoder.load_state_dict(torch.load(autoencoder_path))
@@ -212,10 +229,10 @@ else:
 identifier="actor"
 print("training "+str(identifier))
 while True:
-    model.learn(total_timesteps=1e3)
-    model.save("actor.zip")
+#    model.learn(total_timesteps=1e3)
+#    model.save("actor.zip")
     visualize(env,model,2000)
-    train_autoencoder(num_epochs=10)
+    train_autoencoder(num_epochs=100)
 
 env.close()
 
