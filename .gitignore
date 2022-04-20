@@ -1,3 +1,4 @@
 #ignore all checkpoints in jupyter hub
 *.swp
 *.ipynb_checkpoints/
+*actor.zip
