@@ -10,8 +10,7 @@ If you would like to run our demo follow these steps as listed:
 4. Double click one of the files ending in .ipynb
 5. Run each cell one by one by hitting "shift + enter" on your keyboard
 
-## Demo with the Autoencoder
-1. 
+Look at our [pptx presentation](https://docs.google.com/presentation/d/1dtQngxHU12DPMqut9jK99FZRRpJBc7-b_4-E6TxthSM/edit?usp=sharing)
 
 If you would like to take our main code and run it elsewhere, make sure that you have at least python 3.5 installed on your computer and have gym installed using pip.
 For instructions on how to do that, check out [this link](https://gym.openai.com/docs/).
