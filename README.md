@@ -19,3 +19,5 @@ Then check out the [vizdoom github](https://github.com/mwydmuch/ViZDoom) and ins
 
 To train the autoencoder, run
 	pythom ./gym/doom_trainer.py
+
+It will collect samples and train an autoencoder on pixel input.
