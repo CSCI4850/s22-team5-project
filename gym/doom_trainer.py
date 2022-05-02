@@ -41,7 +41,8 @@ from stable_baselines3 import PPO
 #VizdoomDeathmatch-v0
 #VizdoomHealthGatheringSupreme-v0
 
-env = gym.make("VizdoomDeathmatch-v0")
+#env = gym.make("VizdoomMyWayHome-v0")
+env = gym.make("VizdoomBasic-v0")
 #env = gym.make("Pong-v0")
 
 print("observation_space shape:",env.observation_space.shape)
@@ -166,8 +167,6 @@ class Autoencoder_wrapper(gym.Wrapper):
         self.observation_space=Box(low=0,high=1,shape=_shape,dtype=np.float32)
 
     def step(self,action):
-        for i in range(4): # "look ma no frames"
-            self.env.step(action)
         obs, reward, done, info = self.env.step(action)
         #save some states to train the autoencoder with
         a_err = autoencoder_error(np.column_stack(obs))
@@ -200,26 +199,40 @@ class reward_wrapper(gym.Wrapper):
         super().__init__(env)
         self.reward_sum=0
         self.reward_count=0
+        self.observation_space=Box(low=0,high=1,shape=(75,50),dtype=np.float32)
+
+    def downscale(self,obs):
+        ret = cv2.resize(obs,dsize=(50,75))
+        return ret[:,:,1]
+
 
     def step(self,action):
+#        for i in range(2): # "look ma no frames"
+#            self.env.step(action)
         obs,reward,done,info=self.env.step(action)
         if(done):
             print("reward_count: ",self.reward_count);
             print("reward_sum: ",self.reward_sum);
             self.reward_count=0
             self.reward_sum=0
+
+        obs = self.downscale(obs)
         self.reward_count+=1
         self.reward_sum+=reward
         self.env.render()
         return obs,reward,done,info
 
+    def reset(self, **kwargs):
+        obs = self.env.reset()
+        return self.downscale(obs)
+
 env = reward_wrapper(env)
-env = Autoencoder_wrapper(env)
+#env = Autoencoder_wrapper(env)
 
 #if len(sys.argv) > 1:
 #    model = PPO.load(argv[1])
 #else:
-model = PPO("MlpPolicy", env)
+model = PPO("MlpPolicy", env,n_steps=2048,verbose=1,learning_rate=0.0001)
 
 #model = PPO.load("actor.zip")
 #model.exec()
@@ -239,10 +252,10 @@ else:
 identifier="actor"
 print("training "+str(identifier))
 while True:
-    model.learn(total_timesteps=100)
-    print('saving model...')
-    model.save("actor.zip")
-    train_autoencoder(num_epochs=10)
+    model.learn(total_timesteps=1000)
+#    print('saving model...')
+#    model.save("actor.zip")
+#    train_autoencoder(num_epochs=10)
 
 env.close()
 

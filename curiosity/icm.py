@@ -23,64 +23,27 @@ class Forward(nn.Module):
         super(Autoencoder,self).__init__()
         self.flatten=nn.Flatten()
         self.model = nn.Sequential(
-                nn.Linear(env.observation_space.size+env.action_space.n, 128),
+                nn.Linear(env.observation_space.size+env.action_space.n, 256),
                 nn.ReLU(),
-                nn.Linear(128,128),
+                nn.Linear(256,256),
                 nn.ReLU(),
-                nn.Linear(128, env.observation_space.size),
+                nn.Linear(256, env.observation_space.size),
             )
 
     def forward(self,x):
         return self.model(x)
 
-
-#helps train the forward model, by keeping it focused
-# on actions it can change
-class Inverse(nn.Module):
-    def __init__(self,env):
-        super(Autoencoder,self).__init__()
-        self.flatten=nn.Flatten()
-        self.model = nn.Sequential(
-                nn.Linear(env.observation_space.size*2, 128),
-                nn.ReLU(),
-                nn.Linear(128, 128),
-                nn.ReLU(),
-                nn.Linear(128, env.action_space.n),
-            )
-
-    def forward(self,x):
-   #     x = self.flatten(x)
-        x = self.encoder(x)
-        if self.half:
-            return x
-        y = self.decoder(x)
-        return y
-
-autoencoder=Autoencoder().to(device)
 criterion=nn.MSELoss()
-optimizer = optim.Adam(autoencoder.parameters(), lr=1e-3, weight_decay=1e-5)
+optimizer = optim.Adam(curiosity.parameters(), lr=1e-3, weight_decay=1e-5)
 
-def autoencoder_error(img):
-    autoencoder.half=False
+def curiosity_error(img):
     img=torch.Tensor(img).to(device)
     img = img.reshape(-1,3*screen_width*screen_height)
-    out = autoencoder(img)
+    out = curiosity(img)
     loss = criterion(out, img)
     return loss.item()
 
-def train_autoencoder(num_epochs=10):
-    print("training autoencoder")
-    X = []
-    i=0
-    for root, dirs, files in os.walk('obs/'):
-        for name in tqdm(files):
-            with open ("obs/"+name,"r") as f:
-                i+=1
-                X.append(np.loadtxt(f))
-    if (i == 0):
-        return
-#plt.imshow(X[0],interpolation='nearest')
-#plt.show()
+def train_curiosity(num_epochs=10):
     X=torch.Tensor(X).to(device)
     dataset = TensorDataset(X,X)
     loader=DataLoader(dataset,batch_size=8,shuffle=True)
@@ -90,7 +53,6 @@ def train_autoencoder(num_epochs=10):
     if batch_size < 1:
         return
 
-    autoencoder.half=False
     i=0
     for epoch in range(num_epochs):
     #for epoch in tqdm(range(num_epochs)):
@@ -98,7 +60,7 @@ def train_autoencoder(num_epochs=10):
         for batch in loader:
             img, _ = batch
             img = img.reshape(-1,3*screen_width*screen_height)
-            out = autoencoder(img)
+            out = curiosity(img)
             loss = criterion(out, img)
             optimizer.zero_grad()
             loss.backward()
@@ -123,9 +85,7 @@ def train_autoencoder(num_epochs=10):
             ax2.imshow(arr,interpolation='nearest')
             plt.pause(1/10)
 
-#torch.save(autoencoder.state_dict(),'autoencoder.pth')
-
-class Autoencoder_wrapper(gym.Wrapper):
+class Curiosity_wrapper(gym.Wrapper):
     def __init__(self,env):
         super().__init__(env)
 
@@ -136,19 +96,12 @@ class Autoencoder_wrapper(gym.Wrapper):
         for i in range(4): # "look ma no frames"
             self.env.step(action)
         obs, reward, done, info = self.env.step(action)
-        #save some states to train the autoencoder with
-        a_err = autoencoder_error(np.column_stack(obs))
+        #save some states to train the curiosity with
+        a_err = curiosity_error(np.column_stack(obs))
         reward = reward + (a_err/500)
-        if (random.randint(0,100)==0):
-            print("a_err: ",a_err)
-            if ((a_err > 5)):
-                print("saving because a_err: ",a_err)
-                with open("obs/"+str(uuid.uuid4()),"w") as file:
-                    np.savetxt(file,np.column_stack(obs),fmt='%1.1f')
         img=torch.Tensor(obs).to(device)
         img = img.reshape(-1,3*screen_width*screen_height)
-        autoencoder.half=True
-        obs = autoencoder(img).cpu().detach()
+        obs = curiosity(img).cpu().detach()
 
         return obs, reward, done, info
 
@@ -156,7 +109,6 @@ class Autoencoder_wrapper(gym.Wrapper):
         obs = self.env.reset()
         img=torch.Tensor(obs).to(device)
         img = img.reshape(-1,3*screen_width*screen_height)
-        autoencoder.half=True
-        ret = autoencoder(img)
+        ret = curiosity(img)
         return ret.cpu().detach()
 
